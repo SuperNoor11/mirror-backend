@@ -29,6 +29,15 @@ app.get("/", (_req, res) => {
   res.send("Mirror backend running.");
 });
 
+app.get("/diag", (_req, res) => {
+  res.json({
+    service: "mirror-backend",
+    model: MODEL,
+    has_openai_api_key: Boolean(process.env.OPENAI_API_KEY),
+    has_action_secret: Boolean(process.env.ACTION_SECRET)
+  });
+});
+
 app.post("/chat", async (req, res) => {
   try {
     const auth = req.headers.authorization || "";
@@ -111,4 +120,9 @@ app.post("/chat", async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT} with model ${MODEL}`);
+  console.log("ENV CHECK", {
+    has_openai_api_key: Boolean(process.env.OPENAI_API_KEY),
+    has_action_secret: Boolean(process.env.ACTION_SECRET),
+    model: MODEL
+  });
 });
