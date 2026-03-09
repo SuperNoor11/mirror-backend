@@ -15,6 +15,16 @@ const MASTER_PROMPT = Buffer.from(
   "base64"
 ).toString("utf8");
 
+const SYSTEM_LOCK = {
+  role: "system",
+  content: [
+    {
+      type: "input_text",
+      text: "You are Noor's Mirror — a reflective, intelligent thinking companion. Respond naturally, with insight and continuity. Avoid generic assistant language."
+    }
+  ]
+};
+
 app.get("/", (_req, res) => {
   res.send("Mirror backend running.");
 });
@@ -45,7 +55,12 @@ app.post("/chat", async (req, res) => {
       },
       body: JSON.stringify({
         model: MODEL,
+        temperature: 0.85,
+        top_p: 0.95,
+        presence_penalty: 0.4,
+        frequency_penalty: 0.1,
         input: [
+          SYSTEM_LOCK,
           {
             role: "system",
             content: [
@@ -86,7 +101,7 @@ app.post("/chat", async (req, res) => {
 
     res.json({
   text,
-  model_used: PINNED_MODEL
+  model_used: MODEL
 });
   } catch (err) {
     console.error(err);
@@ -95,5 +110,5 @@ app.post("/chat", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT} with model ${MODEL}`);
 });
