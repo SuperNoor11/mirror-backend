@@ -1,97 +1,73 @@
 const express = require("express");
+const fs = require("fs");
+const path = require("path");
 
 const app = express();
 app.use(express.json());
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const ACTION_SECRET = process.env.ACTION_SECRET;
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
-// Hard-pinned model
-const PINNED_MODEL = "gpt-4o-2024-11-20";
+const MODEL = "gpt-4o-2024-11-20";
 
-app.get("/", (_req, res) => {
-  res.send("Mirror backend is running.");
-});
+// Load the master prompt file
+function loadMasterPrompt() {
+  const filePath = path.join(__dirname, "master_prompt.txt");
+  return fs.readFileSync(filePath, "utf8");
+}
 
 app.post("/chat", async (req, res) => {
   try {
     const auth = req.headers.authorization || "";
-    if (!ACTION_SECRET || auth !== `Bearer ${ACTION_SECRET}`) {
+
+    if (auth !== `Bearer ${ACTION_SECRET}`) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    if (!OPENAI_API_KEY) {
-      return res.status(500).json({ error: "Missing OPENAI_API_KEY on server" });
-    }
+    const userMessage = req.body.message;
 
-    const message = String(req.body?.message || "").trim();
-    const history = Array.isArray(req.body?.history) ? req.body.history : [];
-
-    if (!message) {
-      return res.status(400).json({ error: "Missing message" });
-    }
-
-    const input = [
-      ...history
-        .filter((item) => item && (item.role === "user" || item.role === "assistant"))
-        .map((item) => ({
-          role: item.role,
-          content: [
-            {
-              type: item.role === "assistant" ? "output_text" : "input_text",
-              text: String(item.content || "")
-            }
-          ]
-        })),
-      {
-        role: "user",
-        content: [
-          {
-            type: "input_text",
-            text: message
-          }
-        ]
-      }
-    ];
+    const masterPrompt = loadMasterPrompt();
 
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json"
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: PINNED_MODEL,
-        input
-      })
+        model: MODEL,
+        input: [
+          {
+            role: "system",
+            content: masterPrompt,
+          },
+          {
+            role: "user",
+            content: userMessage,
+          },
+        ],
+      }),
     });
 
     const data = await response.json();
 
-    if (!response.ok) {
-      return res.status(500).json({
-        error: "OpenAI request failed",
-        details: data
-      });
-    }
-
     const text =
-      (data.output || [])
-        .flatMap((item) => item.content || [])
-        .filter((item) => item.type === "output_text")
-        .map((item) => item.text || "")
-        .join("") || "";
+      data.output?.[0]?.content?.[0]?.text ||
+      "No response returned from model.";
 
-    return res.json({ text });
-  } catch (error) {
-    return res.status(500).json({
-      error: "Server error",
-      details: String(error)
-    });
+    res.json({ text });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
+app.get("/", (req, res) => {
+  res.send("Mirror backend running.");
+});
+
 app.listen(PORT, () => {
-  console.log(`Mirror backend listening on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
