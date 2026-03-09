@@ -84,7 +84,10 @@ app.post("/chat", async (req, res) => {
         .map((item) => item.text || "")
         .join("") || "No response returned from model.";
 
-    res.json({ text });
+    res.json({
+  text,
+  model_used: PINNED_MODEL
+});
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error", details: String(err) });
